@@ -1,0 +1,460 @@
+from cmu_112_graphics import *
+import math
+from string import ascii_lowercase
+
+#this is essentially just the graphics layout. 
+#if you drag and drop a resistor you can enter a resistance value so thats fun
+def appStarted(app):
+    app.rows = 8
+    app.cols = 8
+    app.margin = 6 
+    app.message = ''
+    app.res = app.loadImage('Image 11-2-21 at 4.13 PM.jpg')
+    app.vs = app.loadImage('Image 11-2-21 at 4.31 PM.jpg')
+    app.vd = app.loadImage('Image 11-2-21 at 4.36 PM.jpg')
+    app.vs = app.scaleImage(app.vs, 2/3)
+    app.res = app.scaleImage(app.res, 1/3)
+    app.gridWidth = app.width - 20*app.margin
+    app.vsBool = False
+    app.vdBool = False
+    app.resBool = False
+    app.lineBool = False
+    app.vsList = []
+    app.vdList = []
+    app.resList = []   
+    app.resDis = [] 
+    app.resVals = []
+    app.sortedList = [] 
+    app.sortRes = []
+    app.vdDis = []
+    app.boardCor = []
+    app.x = 0
+    app.y = 0
+    app.names = ["a","b","c","d","e","f","i","j","k","l","m","n","o","p","q"
+    ,"r","s","t","u","v","w","dd","1","2","3","4","5","6","7","8","9","10","11"]
+    app.g = Graph()
+    boardCor(app)
+    app.linep = []
+    app.linePoint = []
+
+def getCellBounds(app, row, col):
+    # aka "modelToView"
+    # returns (x0, y0, x1, y1) corners/bounding box of given cell in grid
+    gridWidth  =  app.width - 40*app.margin
+    gridHeight = app.height - 10*app.margin
+    cellWidth = gridWidth / app.cols
+    cellHeight = gridHeight / app.rows
+    x0 = app.margin + col * cellWidth
+    x1 = app.margin + (col+1) * cellWidth
+    y0 = app.margin + row * cellHeight
+    y1 = app.margin + (row+1) * cellHeight
+    
+    return (x0, y0, x1, y1)
+def mousePressed(app, event):
+    pointInGrid(app, event.x, event.y)
+
+    if(app.lineBool == True):
+        m = closestBoard(app, event.x, event.y)
+        app.linep.append(m)
+        if(len(app.linep) == 2):
+            g = (app.linep)
+            app.linePoint.append(g)
+            app.linep = []
+        print(app.linePoint)
+
+
+          
+def pointInGrid(app, x, y):
+    # return True if (x, y) is inside the grid defined by app.
+    if(((app.gridWidth  <= x <= app.gridWidth + app.margin + 
+    app.vs.width) and (600 - app.vs.height <= y <= 600 + app.vs.height)) == True):
+        app.vsBool = True
+        app.vdBool = False
+        app.resBool = False
+        app.lineBool = False
+    if(((app.gridWidth  <= x <= app.gridWidth + app.margin + 
+    app.vs.width) and (400 - app.vs.height <= y <= 400 + app.vs.height)) == True):
+        app.vsBool = False
+        app.vdBool = True
+        app.resBool = False
+        app.lineBool = False
+    if(((app.gridWidth  <= x <= app.gridWidth + app.margin + 
+    app.vs.width) and (300 - app.vs.height <= y <= 300 + app.vs.height)) == True):
+        app.vsBool = False
+        app.vdBool = False
+        app.resBool = True
+        app.lineBool = False
+    if(((app.gridWidth  <= x <= app.gridWidth + app.margin + 
+    app.vs.width) and (200 - app.vs.height <= y <= 200 + app.vs.height)) == True):
+        app.vsBool = False
+        app.vdBool = False
+        app.resBool = False
+        app.lineBool = True
+    #print(app.vsBool,app.vdBool,app.resBool)
+def mouseDragged(app, event):
+    
+    app.x = event.x
+    app.y = event.y
+
+def closestBoard(app,x,y):
+    smallestDis = 10000
+    point = []
+    for row in app.boardCor:
+        for col in app.boardCor[0]:
+            c = (row)
+            m = (x,y)
+            n = distance(c,m)
+            if(n < smallestDis):
+                smallestDis = n
+                point = c
+    return point
+
+
+def mouseReleased(app, event):
+    pointInGrid(app, event.x, event.y)
+    m = closestBoard(app, event.x, event.y)
+    app.x = event.x
+    app.y = event.y
+    if(app.vsBool == True):
+        app.vsList.append(m)
+        #Have this be the rows and cols?
+        app.g.add_vertex("voltage",m,0)
+        app.names.pop(0)
+    elif(app.vdBool == True):
+        app.vdList.append(m)
+    elif(app.resBool == True):
+        name = app.getUserInput('Resistance Value')
+        r = (m[0] - 35,m[1],name)
+        app.resList.append(r)
+        app.g.add_vertex('resistor',m,name)
+        app.names.pop()    
+        #print(app.resVals)
+        if(len(app.vsList) > 1):
+            orderRes(app)
+    
+
+    for v in app.g:
+        vid = v.get_id()
+        p = v.get_position()
+        w = v.get_weightL()
+            #print(v)
+        print("hiii",vid,p,w)
+    print(app.g.sorting())
+#I want to make a run key pressed event instead so it doesnt keep ordering thing
+
+def orderRes(app):
+    if(len(app.vsList) > 0):
+        ref = app.vsList[1]
+        for i in app.resList:
+            
+            m = ((i[0] - ref[0]),i[2])
+            app.resDis.append(m)
+    if(len(app.vsList) > 0):
+        ref = app.vsList[1]
+        for k in app.vdList:
+            o = ((k[0] - ref[0]),'voltageDivider')
+            app.vdDis.append(o)
+    
+def boardCor(app):  
+    for row in range(app.rows):
+        for col in range(app.cols):
+            (x0, y0, x1, y1) = getCellBounds(app, row, col)
+            r = (x0,y0)
+            app.boardCor.append(r)
+
+
+def redrawAll(app, canvas):
+ 
+    for row in range(app.rows):
+        for col in range(app.cols):
+            (x0, y0, x1, y1) = getCellBounds(app, row, col)
+            fill = "white" 
+           
+            canvas.create_oval(x1+5, y1+5, x1-5, y1-5, fill='pink')
+    for i in app.vsList:
+         canvas.create_image(i[0],i[1], image=ImageTk.PhotoImage(app.vs))
+        
+
+    for k in app.vdList:
+         canvas.create_image(k[0],k[1], image=ImageTk.PhotoImage(app.vd))
+    for a in app.resList:
+        canvas.create_image(a[0],a[1], image=ImageTk.PhotoImage(app.res))
+        font = 'Arial 12 bold'
+        canvas.create_text(a[0],  a[1] + app.margin*3, text=a[2], font=font)
+    if(len(app.linePoint) > 0):
+        for l in app.linePoint[2:]: 
+            canvas.create_line(l[0][0],l[0][1],l[1][0],l[1][1],width = 5)
+        
+    canvas.create_image((app.gridWidth + app.margin), 300, image=ImageTk.PhotoImage(app.res))
+    canvas.create_image((app.gridWidth + app.margin), 600, image=ImageTk.PhotoImage(app.vs))
+    canvas.create_image((app.gridWidth + app.margin), 400, image=ImageTk.PhotoImage(app.vd))
+    canvas.create_rectangle(app.gridWidth + app.margin-20,200,app.gridWidth + app.margin + 40,120)
+    
+    #print(app.x,app.y)
+
+
+def keyPressed(app, event):
+    distanceList = []
+  
+    if (event.key == "Left"):  
+        if(len(app.vsList) > 1):
+            #print("hey",app.resDis)
+            for i in app.resDis:
+                e = (int(i[0]),int(i[1]))
+                #print(e)
+                w = e
+                #print("sup",w)    
+                distanceList.append(w)
+            for i in app.vdDis:
+                e = (int(i[0]),'voltageDivider')
+                #print(e)
+                w = e
+                #print("sup",w)    
+                distanceList.append(w)
+            #print("joe",distanceList)
+            app.sortedList = more(app,distanceList,app.resList,app.vsList[1],app.vdList)
+
+            print("hhhhhhhhhhhhh",app.sortedList)
+        h =[]
+        for i in app.sortedList:
+            if i not in h:
+                if( i[2] != 'voltageDivider'):
+                    h.append(int(i[2]))
+                    app.sortRes.append(int(i[2]))
+                else:
+                    h.append(i[2])
+                    app.sortRes.append(i[2])
+        #print(h,app.sortRes)
+
+    if (event.key == "Right"):  
+        print("hi")
+        ep = circuit(app.sortRes)
+        print(ep)
+
+def distance(p1,p2):
+    #print(p1,p2)
+    return math.sqrt( ((int(p1[0])-int(p2[0]))**2)+((int(p1[1])-int(p2[1]))**2) )
+
+def getMax(p):
+    i = 0
+    m = 0
+    g = 0
+    bestIndex = 0
+    for i in range(len(p)):
+       
+        if(p[i][0] > m):
+            m = p[i][0]
+            g = p[i]
+            bestIndex = i 
+    return (g,bestIndex)
+
+def sort(a):
+    r = copy.deepcopy(a)
+    k = []
+    s = []
+    while len(r) > 0:
+        k = getMax(r)
+        s.append(k[0])
+        r.pop(k[1])
+    return s
+
+def makeTheList(a,m):
+    #print(a,m)
+    newL = []
+    for l in m:
+        newL.append(l)
+    return newL
+
+def more(app,a,m,y,vdList):
+    #print("v",vdList)
+    for i in range(len(vdList)):
+        r = (vdList[i][0],vdList[i][1],'voltageDivider')
+        vdList[i] = r
+    #print("Q",vdList)
+    L = []
+    m = m + vdList
+    #print(m)
+    L = makeTheList(a,m)
+    #print("hiya",L)
+    top = []
+    g = []
+    bottom = []
+    for k in range(len(L)):
+        #print(L,"shit",y)
+        if(L[k][0] > y[1]):
+            top.append(L[k])
+        else:
+            bottom.append(L[k])
+    top = sort(top)
+    
+    bottom = sort(bottom)
+    #print("howdy",top,"bbb",bottom)
+    top = top[::-1]
+    g = top + bottom
+    return g    
+   
+def seriesSumRes(seriesList):
+    #print("series",seriesList)
+    sum = 0
+    for i in range(len(seriesList)):
+        sum += seriesList[i]
+    return sum
+def sumParRes(parList):
+    #print("parList",parList)
+    sum = 0
+    for i in range(len(parList)):
+        sum += (1/(parList[i]))
+    sum = (1/sum)
+    return sum
+# voltage divider begining and end 
+def voltageDivider(L):
+
+    #not actually final step before 
+    fin = []
+    result = 0
+    a = 0
+    for r in range(len(L)):
+        a = 0
+        i = -1
+        if("voltageDivider" not in L[r]):
+            fin.append(seriesSumRes(L[r]))
+        else:
+            while((i < len(L[r]))):
+                if(type(L[r][i]) == int):
+                    a = L[r][i]
+                i += 1
+                parList = []
+                #there is a voltage divider adds it 
+                if((i < len(L[r])) and (L[r][i] == "voltageDivider")):
+                    i +=1 
+                    while((i < len(L[r]) and L[r][i] != "voltageDivider")):
+                        parList = L[r][i]
+                        if(type(parList) != list):
+                            fin.append(parList)
+                        else: 
+                            fin.append(voltageDivider(parList)) 
+                        i +=1
+            fin[r] += a
+  
+    result = sumParRes(fin)
+    return result 
+def circuit(L):
+    result = []
+    r = 0
+    for r in range(len(L)):
+        i = 0
+        voltL = []
+        if((L[r] != "voltageDivider")and type(L[r]) == int):
+                    result.append(L[r])
+        while(i < len(L)):
+            if((r < len(L)) and (L[r] == "voltageDivider")):
+                r +=1 
+                voltL = L[r]
+                if(type(voltL) == list):
+                    result.append(voltageDivider(voltL))
+            i += 1
+    r = seriesSumRes(result)
+    return r
+
+
+
+
+
+
+
+class Vertex:
+    def __init__(self, node,rowCol,weight):
+        self.id = node
+        self.weight = weight
+        self.rowCol = rowCol
+        self.adjacent = {}
+
+    def __str__(self):
+        return str(self.id) + ' adjacent: ' + str([x.id for x in self.adjacent])
+
+    def add_neighbor(self, neighbor, weight=0):
+        self.adjacent[neighbor] = weight
+
+    def get_connections(self):
+        return self.adjacent.keys()  
+
+    def get_id(self):
+        return self.id
+    def __repr__(self):
+        return f'{self}'
+    def get_weightL(self):
+        return self.weight
+
+    def get_position(self):
+        return self.rowCol
+
+    def get_weight(self, neighbor):
+        return self.adjacent[neighbor]
+
+class Graph:
+    def __init__(self):
+        self.vert_dict = {}
+        self.num_vertices = 0
+        self.positions = []
+        self.s = set()
+        self.build = []
+       
+
+    def __iter__(self):
+        return iter(self.vert_dict.values())
+
+    def add_vertex(self, node, rowCol,weight):
+        self.num_vertices = self.num_vertices + 1
+        new_vertex = Vertex(node,rowCol,weight)
+        self.positions.append(rowCol)
+        self.vert_dict[node] = new_vertex
+        return new_vertex
+
+    def get_vertex(self, n):
+        if n in self.vert_dict:
+            return self.vert_dict[n]
+        else:
+            return None
+
+    def add_edge(self, frm, to, cost = 0):
+        if frm not in self.vert_dict:
+            self.add_vertex(frm)
+        if to not in self.vert_dict:
+            self.add_vertex(to)
+
+        self.vert_dict[frm].add_neighbor(self.vert_dict[to], cost)
+        self.vert_dict[to].add_neighbor(self.vert_dict[frm], cost)
+    
+    def get_vertices(self):
+        return self.vert_dict.keys()
+
+    #rename something like x list
+    def sorting(self):
+        q = []
+        for key in self.vert_dict:
+            self.s.add(self.vert_dict[key].get_position()[0])
+        q = list(self.s)
+        for i in range(len(self.s)):
+            if(len(self.build) != len(q)):
+                self.build.append([])
+        
+        for i in range(len(q)):
+            for key in self.vert_dict:
+                if(self.vert_dict[key].get_position()[0] == q[i]):
+                    m = (self.vert_dict[key].get_position(),self.vert_dict[key].get_weightL())
+                    self.build[i].append(m)
+        print("what up my guy",q,self.build)
+
+
+    #def solving(self):
+    
+class Resistor(object):
+    def __init__(self,resistance):
+        self.resistance = resistance
+        
+    def __repr__(self):
+        return f'{self.resistance}'  
+
+
+
+runApp(width=900, height=800)
